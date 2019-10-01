@@ -24,6 +24,9 @@ module.exports = function (options) {
   const devHost = options.devHost || 'localhost';
   const smtpPort = options.smtpPort || 25 
   const smtpHost = options.smtpHost || -1
+  const rejectUnauthorized = options.rejectUnauthorized;
+  const autoEHLO = options.autoEHLO;
+  
   /*
    *   邮件服务返回代码含义 Mail service return code Meaning
    *   500   格式错误，命令不可识别（此错误也包括命令行过长）format error, command unrecognized (This error also includes command line too long)
@@ -157,6 +160,7 @@ module.exports = function (options) {
       let parts;
       let cmd;
       let upgraded = false;
+      let hellod = false;
 
         /*
          if(mail.user && mail.pass){
@@ -180,7 +184,7 @@ module.exports = function (options) {
           case 220:
             //*   220   on server ready
             //*   220   服务就绪
-            if(/\bGo ahead\b/i.test(msg) || /\bTLS\b/i.test(msg)){
+            if(/\bGo ahead\b/i.test(msg) || /\bTLS\b/i.test(msg) || hellod){
               sock.removeAllListeners('data');
 
               let original = sock;
@@ -189,7 +193,7 @@ module.exports = function (options) {
               let opts = {
                 socket: sock,
                 host: sock._host,
-                rejectUnauthorized: false
+                rejectUnauthorized,
               };
 
               sock = connect(
@@ -222,23 +226,30 @@ module.exports = function (options) {
               break;
             } else
             {
-              if (/\besmtp\b/i.test(msg)) {
+              if (/\besmtp\b/i.test(msg) || autoEHLO) {
                 // TODO:  determin AUTH type; auth login, auth crm-md5, auth plain
                 cmd = 'EHLO'
               } else {
+                upgraded = true;
                 cmd = 'HELO'
               }
               w(cmd + ' ' + srcHost);
+              hellod = true;
               break;
             } 
 
           case 221: // bye
+            sock.end();
+            break;
           case 235: // verify ok
           case 250: // operation OK
             if(upgraded != true){
               if(/\bSTARTTLS\b/i.test(msg)){
                 w('STARTTLS');
+              } else {
+                upgraded = true;
               }
+              
               break;
             }
 
