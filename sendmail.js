@@ -160,7 +160,6 @@ module.exports = function (options) {
       let parts;
       let cmd;
       let upgraded = false;
-      let hellod = false;
 
         /*
          if(mail.user && mail.pass){
@@ -184,7 +183,7 @@ module.exports = function (options) {
           case 220:
             //*   220   on server ready
             //*   220   服务就绪
-            if(/\bGo ahead\b/i.test(msg) || /\bTLS\b/i.test(msg) || hellod){
+            if(upgraded === "in-progress"){
               sock.removeAllListeners('data');
 
               let original = sock;
@@ -234,18 +233,19 @@ module.exports = function (options) {
                 cmd = 'HELO'
               }
               w(cmd + ' ' + srcHost);
-              hellod = true;
               break;
             } 
 
           case 221: // bye
             sock.end();
+            callback(null, msg);
             break;
           case 235: // verify ok
           case 250: // operation OK
             if(upgraded != true){
               if(/\bSTARTTLS\b/i.test(msg)){
                 w('STARTTLS');
+                upgraded = "in-progress";
               } else {
                 upgraded = true;
               }
